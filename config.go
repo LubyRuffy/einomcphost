@@ -29,6 +29,8 @@ import (
 	"os"
 	"strings"
 	"time"
+
+	"github.com/mark3labs/mcp-go/client"
 )
 
 // Timeout configuration constants define default and minimum timeout values
@@ -45,6 +47,8 @@ const (
 	TransportTypeSSE = "sse"
 	// TransportTypeStdio represents standard input/output transport
 	TransportTypeStdio = "stdio"
+	// TransportTypeInprocess represents inprocess transport
+	TransportTypeInprocess = "inprocess"
 )
 
 // Error message constants provide consistent error reporting
@@ -90,6 +94,9 @@ type ServerConfig struct {
 	Command string            `json:"command" yaml:"command" mapstructure:"command"`         // Command to execute for stdio transport
 	Args    []string          `json:"args" yaml:"args" mapstructure:"args"`                  // Command arguments
 	Env     map[string]string `json:"env,omitempty" yaml:"env,omitempty" mapstructure:"env"` // Environment variables
+
+	// Inprocess specific configuration
+	inProcessClient *client.Client `json:"inprocessClient,omitempty" yaml:"inprocessClient,omitempty" mapstructure:"inprocessClient"` // MCP client implementation to be used for this server
 }
 
 // GetTimeoutDuration returns the timeout duration for the server.

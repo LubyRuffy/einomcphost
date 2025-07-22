@@ -85,11 +85,15 @@ type Connection struct {
 // newMCPHub creates a new MCPHub instance with the given settings.
 // It initializes all enabled servers and discovers their tools.
 // This is an internal constructor used by the public factory functions.
-func newMCPHub(ctx context.Context, settings *MCPSettings) (*MCPHub, error) {
+func newMCPHub(ctx context.Context, settings *MCPSettings, opts ...MCPHubOption) (*MCPHub, error) {
 	h := &MCPHub{
 		connections: make(map[string]*Connection),
 		tools:       make(map[string]tool.InvokableTool),
 		config:      settings,
+	}
+
+	for _, o := range opts {
+		o(h)
 	}
 
 	if err := h.initializeServers(ctx); err != nil {
@@ -109,12 +113,37 @@ func newMCPHub(ctx context.Context, settings *MCPSettings) (*MCPHub, error) {
 // Returns:
 //   - *MCPHub: Initialized MCPHub instance
 //   - error: Error if initialization fails
-func NewMCPHubFromString(ctx context.Context, config string) (*MCPHub, error) {
+func NewMCPHubFromString(ctx context.Context, config string, opts ...MCPHubOption) (*MCPHub, error) {
 	settings, err := LoadSettingsFromString(config)
 	if err != nil {
 		return nil, fmt.Errorf("加载配置字符串失败: %w", err)
 	}
-	return newMCPHub(ctx, settings)
+	return newMCPHub(ctx, settings, opts...)
+}
+
+type MCPHubOption func(*MCPHub)
+
+// WithInprocessMCPClient adds a custom MCP client to the hub.
+// It allows users to provide their own MCP client implementation
+// for specific servers, overriding the default client creation logic.
+//
+// Parameters:
+//   - name: Name of the server to which the custom client will be associated
+//   - client: MCP client implementation to be used for this server
+//
+// 主要是为了支持 inprocess 的client
+func WithInprocessMCPClient(name string, client *client.Client) MCPHubOption {
+	return func(h *MCPHub) {
+		config := &ServerConfig{
+			TransportType:   TransportTypeInprocess,
+			inProcessClient: client,
+		}
+		h.connections[name] = &Connection{
+			Client: client,
+			Config: config,
+		}
+		h.config.MCPServers[name] = config
+	}
 }
 
 // NewMCPHub creates a new MCPHub from a configuration file.
@@ -127,12 +156,12 @@ func NewMCPHubFromString(ctx context.Context, config string) (*MCPHub, error) {
 // Returns:
 //   - *MCPHub: Initialized MCPHub instance
 //   - error: Error if initialization fails
-func NewMCPHub(ctx context.Context, configPath string) (*MCPHub, error) {
+func NewMCPHub(ctx context.Context, configPath string, opts ...MCPHubOption) (*MCPHub, error) {
 	settings, err := LoadSettings(configPath)
 	if err != nil {
 		return nil, fmt.Errorf("加载配置文件失败: %w", err)
 	}
-	return newMCPHub(ctx, settings)
+	return newMCPHub(ctx, settings, opts...)
 }
 
 // NewMCPHubFromSettings creates a new MCPHub directly from MCPSettings.
@@ -145,8 +174,8 @@ func NewMCPHub(ctx context.Context, configPath string) (*MCPHub, error) {
 // Returns:
 //   - *MCPHub: Initialized MCPHub instance
 //   - error: Error if initialization fails
-func NewMCPHubFromSettings(ctx context.Context, settings *MCPSettings) (*MCPHub, error) {
-	return newMCPHub(ctx, settings)
+func NewMCPHubFromSettings(ctx context.Context, settings *MCPSettings, opts ...MCPHubOption) (*MCPHub, error) {
+	return newMCPHub(ctx, settings, opts...)
 }
 
 // initializeServers initializes all enabled MCP servers.
@@ -487,10 +516,27 @@ func (h *MCPHub) createMCPClient(config *ServerConfig) (*client.Client, error) {
 				log.Printf("替换环境变量: %s -> %s", "${"+key+"}", os.Getenv(key))
 			}
 		}
+		// proxyURL, err := url.Parse("http://127.0.0.1:18080")
+		// if err != nil {
+		// 	return nil, fmt.Errorf("解析代理URL失败: %w", err)
+		// }
+
+		// httpClient := &http.Client{
+		// 	Timeout: 30 * time.Second,
+		// 	Transport: &http.Transport{
+		// 		Proxy: http.ProxyURL(proxyURL),
+		// 	},
+		// }
+		// transport.WithHTTPClient(httpClient)
 		return client.NewSSEMCPClient(config.URL)
 	case TransportTypeStdio:
 		env := h.buildEnvironment(config.Env)
 		return client.NewStdioMCPClient(config.Command, env, config.Args...)
+	case TransportTypeInprocess:
+		if config.inProcessClient == nil {
+			return nil, fmt.Errorf("inprocess 的client不能为空")
+		}
+		return config.inProcessClient, nil
 	default:
 		return nil, fmt.Errorf("不支持的传输类型: %s", config.TransportType)
 	}

@@ -16,6 +16,9 @@ import (
 	"github.com/cloudwego/eino/flow/agent/react"
 	"github.com/cloudwego/eino/schema"
 	template_callbacks "github.com/cloudwego/eino/utils/callbacks"
+	"github.com/mark3labs/mcp-go/client"
+	mcpp "github.com/mark3labs/mcp-go/mcp"
+	"github.com/mark3labs/mcp-go/server"
 )
 
 // buildAgentCallback 构建agent回调
@@ -115,12 +118,39 @@ func buildThinkToolCallChecker() func(ctx context.Context, sr *schema.StreamRead
 	}
 }
 
+func newMcpServer() *server.MCPServer {
+	s := server.NewMCPServer("test", "v1")
+	s.AddTool(mcpp.Tool{
+		Name:        "test",
+		Description: "test",
+		InputSchema: mcpp.ToolInputSchema{
+			Type: "object",
+			Properties: map[string]any{
+				"test": map[string]any{
+					"type": "string",
+				},
+			},
+			Required: []string{"test"},
+		},
+	}, func(ctx context.Context, request mcpp.CallToolRequest) (*mcpp.CallToolResult, error) {
+		return &mcpp.CallToolResult{Content: []mcpp.Content{mcpp.NewTextContent("test")}}, nil
+	})
+	return s
+}
+
 func main() {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
+	inProcessClient, err := client.NewInProcessClient(newMcpServer())
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer inProcessClient.Close()
+
 	// 创建MCPHub
-	hub, err := einomcphost.NewMCPHub(ctx, `mcpservers.json`)
+	hub, err := einomcphost.NewMCPHub(ctx, `mcpservers.json`,
+		einomcphost.WithInprocessMCPClient("test", inProcessClient))
 	if err != nil {
 		log.Fatal(err)
 	}
