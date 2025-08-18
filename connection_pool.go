@@ -72,11 +72,11 @@ func generateConfigKey(settings *MCPSettings) string {
 		keyBuilder.WriteString(fmt.Sprintf("|%s:", name))
 
 		switch config.Transport {
-		case TransportTypeSSE:
+		case transportSSE:
 			keyBuilder.WriteString(fmt.Sprintf("SSE:%s", config.URL))
-		case TransportTypeHTTP:
+		case transportHTTP1, transportHTTPStreamable:
 			keyBuilder.WriteString(fmt.Sprintf("HTTP:%s", config.URL))
-		case TransportTypeStdio, "":
+		case transportStdio, "":
 			keyBuilder.WriteString(fmt.Sprintf("STDIO:%s:", config.Command))
 			// 添加参数
 			for i, arg := range config.Args {

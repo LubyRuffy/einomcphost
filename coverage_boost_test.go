@@ -156,7 +156,7 @@ func TestNewMCPHubFromSettingsBasic(t *testing.T) {
 	settings = &MCPSettings{
 		MCPServers: map[string]*ServerConfig{
 			"disabled": {
-				Transport: TransportTypeStdio,
+				Transport: transportStdio,
 				Command:   "echo",
 				Disabled:  true,
 			},

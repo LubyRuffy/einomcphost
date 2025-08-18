@@ -89,7 +89,7 @@ func TestCreateMCPClientAllErrorPaths(t *testing.T) {
 
 	// 测试sse传输但缺少URL
 	config = &ServerConfig{
-		Transport: TransportTypeSSE,
+		Transport: transportSSE,
 		URL:       "",
 	}
 	client, err = hub.createMCPClient(config)
@@ -328,23 +328,23 @@ func TestServerConfigMethods(t *testing.T) {
 	assert.Equal(t, customTimeout, timeout)
 
 	// 测试IsSSETransport
-	config = ServerConfig{Transport: TransportTypeSSE}
+	config = ServerConfig{Transport: transportSSE}
 	assert.True(t, config.IsSSETransport())
 
-	config = ServerConfig{Transport: TransportTypeStdio}
+	config = ServerConfig{Transport: transportStdio}
 	assert.False(t, config.IsSSETransport())
 
 	config = ServerConfig{Transport: "unknown"}
 	assert.False(t, config.IsSSETransport())
 
 	// 测试IsStdioTransport
-	config = ServerConfig{Transport: TransportTypeStdio}
+	config = ServerConfig{Transport: transportStdio}
 	assert.True(t, config.IsStdioTransport())
 
 	config = ServerConfig{Transport: ""}
 	assert.True(t, config.IsStdioTransport()) // 默认为stdio
 
-	config = ServerConfig{Transport: TransportTypeSSE}
+	config = ServerConfig{Transport: transportSSE}
 	assert.False(t, config.IsStdioTransport())
 }
 
@@ -368,12 +368,12 @@ func TestNewMCPHubFromSettingsEdgeCases(t *testing.T) {
 	settings2 := &MCPSettings{
 		MCPServers: map[string]*ServerConfig{
 			"disabled1": {
-				Transport: TransportTypeStdio,
+				Transport: transportStdio,
 				Command:   "echo",
 				Disabled:  true,
 			},
 			"disabled2": {
-				Transport: TransportTypeSSE,
+				Transport: transportSSE,
 				URL:       "http://example.com",
 				Disabled:  true,
 			},
@@ -414,7 +414,7 @@ func TestNewMCPHubFromStringEdgeCases(t *testing.T) {
 	jsonConfig := `{
 		"mcpServers": {
 			"disabled_server": {
-				"transportType": "stdio",
+				"transport": "stdio",
 				"command": "echo",
 				"disabled": true
 			}
@@ -433,7 +433,7 @@ func TestCreateMCPClientStdioSuccess(t *testing.T) {
 
 	// 测试有效的stdio配置
 	config := &ServerConfig{
-		Transport: TransportTypeStdio,
+		Transport: transportStdio,
 		Command:   "echo", // 使用echo命令，应该在大多数系统上可用
 		Args:      []string{"hello"},
 		Env:       map[string]string{"TEST": "value"},
@@ -494,7 +494,7 @@ func TestNewMCPHubInitializationFailure(t *testing.T) {
 	settings := &MCPSettings{
 		MCPServers: map[string]*ServerConfig{
 			"invalid_server": {
-				Transport: TransportTypeStdio,
+				Transport: transportStdio,
 				Command:   "nonexistent_command_that_should_fail",
 				Disabled:  false, // 确保不被跳过
 			},

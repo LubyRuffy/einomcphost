@@ -85,7 +85,7 @@ func TestLoadSettingsFromString_EdgeCases(t *testing.T) {
 	invalidConfigJSON := `{
 		"mcpServers": {
 			"invalid_server": {
-				"transportType": "invalid"
+				"transport": "invalid"
 			}
 		}
 	}`
@@ -97,38 +97,87 @@ func TestLoadSettingsFromString_EdgeCases(t *testing.T) {
 // TestServerConfigIsSSETransport tests the IsSSETransport method
 func TestServerConfigIsSSETransport(t *testing.T) {
 	tests := []struct {
-		name          string
-		transportType TransportType
-		expected      bool
+		name      string
+		transport transport
+		expected  bool
 	}{
 		{
-			name:          "SSE transport",
-			transportType: TransportTypeSSE,
-			expected:      true,
+			name:      "SSE transport",
+			transport: transportSSE,
+			expected:  true,
 		},
 		{
-			name:          "stdio transport",
-			transportType: TransportTypeStdio,
-			expected:      false,
+			name:      "stdio transport",
+			transport: transportStdio,
+			expected:  false,
 		},
 		{
-			name:          "empty transport",
-			transportType: "",
-			expected:      false,
+			name:      "empty transport",
+			transport: "",
+			expected:  false,
 		},
 		{
-			name:          "unknown transport",
-			transportType: "unknown",
-			expected:      false,
+			name:      "unknown transport",
+			transport: "unknown",
+			expected:  false,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			config := &ServerConfig{
-				Transport: tt.transportType,
+				Transport: tt.transport,
 			}
 			assert.Equal(t, tt.expected, config.IsSSETransport())
+		})
+	}
+}
+
+// TestServerConfigIsHTTPTransport tests the IsHTTPTransport method
+func TestServerConfigIsHTTPTransport(t *testing.T) {
+	tests := []struct {
+		name      string
+		transport transport
+		expected  bool
+	}{
+		{
+			name:      "HTTP transport",
+			transport: transportHTTP1,
+			expected:  true,
+		},
+		{
+			name:      "streamable transport",
+			transport: transportHTTPStreamable,
+			expected:  true,
+		},
+		{
+			name:      "SSE transport",
+			transport: transportSSE,
+			expected:  false,
+		},
+		{
+			name:      "stdio transport",
+			transport: transportStdio,
+			expected:  false,
+		},
+		{
+			name:      "empty transport",
+			transport: "",
+			expected:  false,
+		},
+		{
+			name:      "unknown transport",
+			transport: "unknown",
+			expected:  false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			config := &ServerConfig{
+				Transport: tt.transport,
+			}
+			assert.Equal(t, tt.expected, config.IsHTTPTransport())
 		})
 	}
 }
@@ -136,36 +185,46 @@ func TestServerConfigIsSSETransport(t *testing.T) {
 // TestServerConfigIsStdioTransport tests the IsStdioTransport method
 func TestServerConfigIsStdioTransport(t *testing.T) {
 	tests := []struct {
-		name          string
-		transportType TransportType
-		expected      bool
+		name      string
+		transport transport
+		expected  bool
 	}{
 		{
-			name:          "stdio transport",
-			transportType: TransportTypeStdio,
-			expected:      true,
+			name:      "stdio transport",
+			transport: transportStdio,
+			expected:  true,
 		},
 		{
-			name:          "empty transport (defaults to stdio)",
-			transportType: "",
-			expected:      true,
+			name:      "empty transport (defaults to stdio)",
+			transport: "",
+			expected:  true,
 		},
 		{
-			name:          "SSE transport",
-			transportType: TransportTypeSSE,
-			expected:      false,
+			name:      "SSE transport",
+			transport: transportSSE,
+			expected:  false,
 		},
 		{
-			name:          "unknown transport",
-			transportType: "unknown",
-			expected:      false,
+			name:      "HTTP transport",
+			transport: transportHTTP1,
+			expected:  false,
+		},
+		{
+			name:      "streamable transport",
+			transport: transportHTTPStreamable,
+			expected:  false,
+		},
+		{
+			name:      "unknown transport",
+			transport: "unknown",
+			expected:  false,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			config := &ServerConfig{
-				Transport: tt.transportType,
+				Transport: tt.transport,
 			}
 			assert.Equal(t, tt.expected, config.IsStdioTransport())
 		})
@@ -216,7 +275,7 @@ func TestValidateServerConfigWithWhitespace(t *testing.T) {
 		{
 			name: "SSE with empty URL",
 			config: &ServerConfig{
-				Transport: TransportTypeSSE,
+				Transport: transportSSE,
 				URL:       "",
 			},
 			expectError: true,
@@ -225,7 +284,7 @@ func TestValidateServerConfigWithWhitespace(t *testing.T) {
 		{
 			name: "SSE with whitespace URL",
 			config: &ServerConfig{
-				Transport: TransportTypeSSE,
+				Transport: transportSSE,
 				URL:       "   ",
 			},
 			expectError: true,
@@ -234,7 +293,7 @@ func TestValidateServerConfigWithWhitespace(t *testing.T) {
 		{
 			name: "stdio with empty command",
 			config: &ServerConfig{
-				Transport: TransportTypeStdio,
+				Transport: transportStdio,
 				Command:   "",
 			},
 			expectError: true,
@@ -243,7 +302,7 @@ func TestValidateServerConfigWithWhitespace(t *testing.T) {
 		{
 			name: "stdio with whitespace command",
 			config: &ServerConfig{
-				Transport: TransportTypeStdio,
+				Transport: transportStdio,
 				Command:   "   ",
 			},
 			expectError: true,
@@ -253,7 +312,7 @@ func TestValidateServerConfigWithWhitespace(t *testing.T) {
 			name: "default transport with empty command",
 			config: &ServerConfig{
 				Transport: "",
-				Command:   "", // TransportType为空，先检查url，再检查command，都没有的话，返回unsupported transport type
+				Command:   "", // transport为空，先检查url，再检查command，都没有的话，返回unsupported transport type
 			},
 			expectError: true,
 			errorMsg:    "unsupported transport type",
@@ -261,7 +320,7 @@ func TestValidateServerConfigWithWhitespace(t *testing.T) {
 		{
 			name: "valid SSE config",
 			config: &ServerConfig{
-				Transport: TransportTypeSSE,
+				Transport: transportSSE,
 				URL:       "http://localhost:8080",
 			},
 			expectError: false,
@@ -269,11 +328,63 @@ func TestValidateServerConfigWithWhitespace(t *testing.T) {
 		{
 			name: "valid stdio config",
 			config: &ServerConfig{
-				Transport: TransportTypeStdio,
+				Transport: transportStdio,
 				Command:   "python",
 				Args:      []string{"-m", "server"},
 			},
 			expectError: false,
+		},
+		{
+			name: "valid HTTP transport config",
+			config: &ServerConfig{
+				Transport: transportHTTP1,
+				URL:       "http://localhost:8080/mcp",
+			},
+			expectError: false,
+		},
+		{
+			name: "valid streamable transport config",
+			config: &ServerConfig{
+				Transport: transportHTTPStreamable,
+				URL:       "http://localhost:8080/mcp",
+			},
+			expectError: false,
+		},
+		{
+			name: "HTTP transport with empty URL",
+			config: &ServerConfig{
+				Transport: transportHTTP1,
+				URL:       "",
+			},
+			expectError: true,
+			errorMsg:    "URL is required for",
+		},
+		{
+			name: "streamable transport with empty URL",
+			config: &ServerConfig{
+				Transport: transportHTTPStreamable,
+				URL:       "",
+			},
+			expectError: true,
+			errorMsg:    "URL is required for",
+		},
+		{
+			name: "HTTP transport with whitespace URL",
+			config: &ServerConfig{
+				Transport: transportHTTP1,
+				URL:       "   ",
+			},
+			expectError: true,
+			errorMsg:    "URL is required for",
+		},
+		{
+			name: "streamable transport with whitespace URL",
+			config: &ServerConfig{
+				Transport: transportHTTPStreamable,
+				URL:       "   ",
+			},
+			expectError: true,
+			errorMsg:    "URL is required for",
 		},
 	}
 
@@ -285,6 +396,86 @@ func TestValidateServerConfigWithWhitespace(t *testing.T) {
 				assert.Contains(t, err.Error(), tt.errorMsg)
 			} else {
 				assert.NoError(t, err)
+			}
+		})
+	}
+}
+
+// TestStreamableTransportAutoDetection 测试streamable transport的自动检测功能
+func TestStreamableTransportAutoDetection(t *testing.T) {
+	tests := []struct {
+		name              string
+		config            *ServerConfig
+		expectedTransport transport
+		expectError       bool
+		errorMsg          string
+	}{
+		{
+			name: "auto-detect SSE transport with /mcp suffix",
+			config: &ServerConfig{
+				Transport: "",
+				URL:       "http://localhost:8080/mcp",
+			},
+			expectedTransport: transportSSE,
+			expectError:       false,
+		},
+		{
+			name: "auto-detect HTTP transport without /mcp suffix",
+			config: &ServerConfig{
+				Transport: "",
+				URL:       "http://localhost:8080/api",
+			},
+			expectedTransport: transportHTTP1,
+			expectError:       false,
+		},
+		{
+			name: "auto-detect stdio transport with command",
+			config: &ServerConfig{
+				Transport: "",
+				Command:   "python",
+				Args:      []string{"-m", "server"},
+			},
+			expectedTransport: transportStdio,
+			expectError:       false,
+		},
+		{
+			name: "explicit streamable transport with URL",
+			config: &ServerConfig{
+				Transport: transportHTTPStreamable,
+				URL:       "http://localhost:8080/stream",
+			},
+			expectedTransport: transportHTTPStreamable,
+			expectError:       false,
+		},
+		{
+			name: "explicit HTTP transport with URL",
+			config: &ServerConfig{
+				Transport: transportHTTP1,
+				URL:       "http://localhost:8080/http",
+			},
+			expectedTransport: transportHTTP1,
+			expectError:       false,
+		},
+		{
+			name: "no URL and no command should fail",
+			config: &ServerConfig{
+				Transport: "",
+			},
+			expectedTransport: "",
+			expectError:       true,
+			errorMsg:          "unsupported transport type",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := validateServerConfig("test-server", tt.config)
+			if tt.expectError {
+				assert.Error(t, err)
+				assert.Contains(t, err.Error(), tt.errorMsg)
+			} else {
+				assert.NoError(t, err)
+				assert.Equal(t, tt.expectedTransport, tt.config.Transport)
 			}
 		})
 	}

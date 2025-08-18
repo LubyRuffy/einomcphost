@@ -20,7 +20,7 @@ Here is an example configuration:
 {
   "mcpServers": {
     "fofa_mcp": {
-      "transportType": "stdio",
+      "transport": "stdio",
       "command": "python",
       "args": [
         "-m",
@@ -29,7 +29,7 @@ Here is an example configuration:
       "disabled": false
     },
     "another_sse_server": {
-      "transportType": "sse",
+      "transport": "sse",
       "url": "http://localhost:8080/events",
       "disabled": false
     }
@@ -39,7 +39,7 @@ Here is an example configuration:
 
 ### ServerConfig Fields
 
-*   `transportType`: (string) The transport mechanism. Can be `"stdio"` or `"sse"`. Defaults to `"stdio"`.
+*   `transport`: (string) The transport mechanism. Can be `"stdio"` or `"sse"`. Defaults to `"stdio"`.
 *   `command`: (string) Required for `stdio` transport. The command to execute.
 *   `args`: ([]string) Optional arguments for the command.
 *   `env`: (map[string]string) Optional environment variables for the command.

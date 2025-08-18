@@ -135,7 +135,7 @@ type MCPHubOption func(*MCPHub)
 func WithInprocessMCPClient(name string, client *client.Client) MCPHubOption {
 	return func(h *MCPHub) {
 		config := &ServerConfig{
-			Transport:       TransportTypeInprocess,
+			Transport:       transportInprocess,
 			inProcessClient: client,
 		}
 		h.connections[name] = &Connection{
@@ -505,7 +505,7 @@ func (h *MCPHub) closeExistingConnection(serverName string) error {
 //   - error: Error if client creation fails or transport type is unsupported
 func (h *MCPHub) createMCPClient(config *ServerConfig) (*client.Client, error) {
 	switch config.Transport {
-	case TransportTypeSSE, TransportTypeHTTP:
+	case transportSSE, transportHTTP1, transportHTTPStreamable:
 		// replace $(ENV) with os.Getenv(ENV)
 		if strings.Contains(config.URL, "${") {
 			keyStart := strings.Index(config.URL, "${")
@@ -529,10 +529,10 @@ func (h *MCPHub) createMCPClient(config *ServerConfig) (*client.Client, error) {
 		// }
 		// transport.WithHTTPClient(httpClient)
 		return client.NewSSEMCPClient(config.URL)
-	case TransportTypeStdio:
+	case transportStdio:
 		env := h.buildEnvironment(config.Env)
 		return client.NewStdioMCPClient(config.Command, env, config.Args...)
-	case TransportTypeInprocess:
+	case transportInprocess:
 		if config.inProcessClient == nil {
 			return nil, fmt.Errorf("inprocess 的client不能为空")
 		}
@@ -646,12 +646,19 @@ func (h *MCPHub) GetEinoTools(ctx context.Context, toolNameList []string) ([]too
 	}
 
 	// Return specific tools
+	var missingTools []string
 	for _, toolName := range toolNameList {
 		if t, exists := h.tools[toolName]; exists {
 			result = append(result, t)
 		} else {
 			log.Printf("工具不存在: %s\n", toolName)
+			missingTools = append(missingTools, toolName)
 		}
+	}
+
+	// 如果有工具不存在，返回错误
+	if len(missingTools) > 0 {
+		return nil, fmt.Errorf("工具不存在: %s", strings.Join(missingTools, ", "))
 	}
 
 	return result, nil

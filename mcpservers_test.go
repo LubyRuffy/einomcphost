@@ -87,7 +87,7 @@ func TestLoadSettings(t *testing.T) {
 	// 验证server1配置
 	server1, exists := loadedConfig.MCPServers["server1"]
 	assert.True(t, exists)
-	assert.Equal(t, "stdio", server1.Transport)
+	assert.Equal(t, transport("stdio"), server1.Transport)
 	assert.Equal(t, "test_command1", server1.Command)
 	assert.Equal(t, []string{"arg1", "arg2"}, server1.Args)
 	assert.Equal(t, map[string]string{"ENV1": "value1"}, server1.Env)
@@ -96,7 +96,7 @@ func TestLoadSettings(t *testing.T) {
 	// 验证server2配置
 	server2, exists := loadedConfig.MCPServers["server2"]
 	assert.True(t, exists)
-	assert.Equal(t, "sse", server2.Transport)
+	assert.Equal(t, transport("sse"), server2.Transport)
 	assert.Equal(t, "http://test-url.com", server2.URL)
 	assert.True(t, server2.Disabled)
 }
@@ -122,7 +122,7 @@ func TestLoadSettingsFromString(t *testing.T) {
 	validConfig := `{
 		"mcpServers": {
 			"test_server": {
-				"transportType": "stdio",
+				"transport": "stdio",
 				"command": "echo",
 				"args": ["hello"],
 				"env": {"TEST_ENV": "test_value"}
@@ -257,7 +257,7 @@ func TestMCPHub_GetEinoTools(t *testing.T) {
 	assert.Len(t, tools, 1)
 
 	// 测试按名称过滤工具（不存在的工具）
-	tools, err = hub.GetEinoTools(ctx, []string{"non_existent_tool"})
+	_, err = hub.GetEinoTools(ctx, []string{"non_existent_tool"})
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "工具不存在")
 }
@@ -303,4 +303,197 @@ func TestMCPHub_CloseServers(t *testing.T) {
 	assert.NoError(t, err)
 
 	// 更复杂的测试需要模拟client.MCPClient接口，这超出了当前任务的范围
+}
+
+// TestValidateSettingsWithStreamableTransport 测试streamable transport的配置验证
+func TestValidateSettingsWithStreamableTransport(t *testing.T) {
+	tests := []struct {
+		name        string
+		settings    *MCPSettings
+		expectError bool
+		errorMsg    string
+	}{
+		{
+			name: "valid streamable transport config",
+			settings: &MCPSettings{
+				MCPServers: map[string]*ServerConfig{
+					"streamable_server": {
+						Transport: transportHTTPStreamable,
+						URL:       "http://localhost:8080/stream",
+					},
+				},
+			},
+			expectError: false,
+		},
+		{
+			name: "valid HTTP transport config",
+			settings: &MCPSettings{
+				MCPServers: map[string]*ServerConfig{
+					"http_server": {
+						Transport: transportHTTP1,
+						URL:       "http://localhost:8080/api",
+					},
+				},
+			},
+			expectError: false,
+		},
+		{
+			name: "streamable transport missing URL",
+			settings: &MCPSettings{
+				MCPServers: map[string]*ServerConfig{
+					"invalid_streamable": {
+						Transport: transportHTTPStreamable,
+						// URL缺失
+					},
+				},
+			},
+			expectError: true,
+			errorMsg:    "URL is required",
+		},
+		{
+			name: "HTTP transport missing URL",
+			settings: &MCPSettings{
+				MCPServers: map[string]*ServerConfig{
+					"invalid_http": {
+						Transport: transportHTTP1,
+						// URL缺失
+					},
+				},
+			},
+			expectError: true,
+			errorMsg:    "URL is required",
+		},
+		{
+			name: "mixed transports all valid",
+			settings: &MCPSettings{
+				MCPServers: map[string]*ServerConfig{
+					"streamable_server": {
+						Transport: transportHTTPStreamable,
+						URL:       "http://localhost:8080/stream",
+					},
+					"http_server": {
+						Transport: transportHTTP1,
+						URL:       "http://localhost:8080/api",
+					},
+					"stdio_server": {
+						Transport: transportStdio,
+						Command:   "python",
+						Args:      []string{"-m", "server"},
+					},
+				},
+			},
+			expectError: false,
+		},
+		{
+			name: "streamable transport with timeout",
+			settings: &MCPSettings{
+				MCPServers: map[string]*ServerConfig{
+					"timeout_streamable": {
+						Transport: transportHTTPStreamable,
+						URL:       "http://localhost:8080/stream",
+						Timeout:   60 * time.Second,
+					},
+				},
+			},
+			expectError: false,
+		},
+		{
+			name: "streamable transport with too short timeout",
+			settings: &MCPSettings{
+				MCPServers: map[string]*ServerConfig{
+					"short_timeout_streamable": {
+						Transport: transportHTTPStreamable,
+						URL:       "http://localhost:8080/stream",
+						Timeout:   2 * time.Second, // 小于最小超时
+					},
+				},
+			},
+			expectError: true,
+			errorMsg:    "timeout must be at least",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := validateSettings(tt.settings)
+			if tt.expectError {
+				assert.Error(t, err)
+				assert.Contains(t, err.Error(), tt.errorMsg)
+			} else {
+				assert.NoError(t, err)
+			}
+		})
+	}
+}
+
+// TestMCPHubCreateClientWithStreamableTransport 测试streamable transport的MCP客户端创建
+func TestMCPHubCreateClientWithStreamableTransport(t *testing.T) {
+	hub := &MCPHub{}
+
+	tests := []struct {
+		name        string
+		config      *ServerConfig
+		expectError bool
+		errorMsg    string
+	}{
+		{
+			name: "streamable transport client creation",
+			config: &ServerConfig{
+				Transport: transportHTTPStreamable,
+				URL:       "http://localhost:8080/stream",
+			},
+			// 客户端创建应该成功，只是连接到服务器会失败
+			expectError: false,
+		},
+		{
+			name: "HTTP transport client creation",
+			config: &ServerConfig{
+				Transport: transportHTTP1,
+				URL:       "http://localhost:8080/api",
+			},
+			// 客户端创建应该成功，只是连接到服务器会失败
+			expectError: false,
+		},
+		{
+			name: "streamable transport with environment variable substitution",
+			config: &ServerConfig{
+				Transport: transportHTTPStreamable,
+				URL:       "http://localhost:${TEST_PORT}/stream",
+			},
+			expectError: false, // 客户端创建应该成功，环境变量会被正确替换
+		},
+		{
+			name: "unsupported transport type",
+			config: &ServerConfig{
+				Transport: "unsupported_transport",
+				URL:       "http://localhost:8080/stream",
+			},
+			expectError: true,
+			errorMsg:    "不支持的传输类型",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// 设置测试环境变量
+			if tt.name == "streamable transport with environment variable substitution" {
+				t.Setenv("TEST_PORT", "8080")
+			}
+
+			client, err := hub.createMCPClient(tt.config)
+			if tt.expectError {
+				assert.Error(t, err)
+				if tt.errorMsg != "" {
+					assert.Contains(t, err.Error(), tt.errorMsg)
+				}
+				// 对于不支持的传输类型，client应该为nil
+				if tt.errorMsg == "不支持的传输类型" {
+					assert.Nil(t, client)
+				}
+			} else {
+				assert.NoError(t, err)
+				assert.NotNil(t, client)
+			}
+		})
+	}
 }
