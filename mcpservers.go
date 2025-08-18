@@ -528,7 +528,10 @@ func (h *MCPHub) createMCPClient(config *ServerConfig) (*client.Client, error) {
 		// 	},
 		// }
 		// transport.WithHTTPClient(httpClient)
-		return client.NewSSEMCPClient(config.URL)
+		if config.Transport == transportSSE {
+			return client.NewSSEMCPClient(config.URL)
+		}
+		return client.NewStreamableHttpClient(config.URL)
 	case transportStdio:
 		env := h.buildEnvironment(config.Env)
 		return client.NewStdioMCPClient(config.Command, env, config.Args...)

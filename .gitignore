@@ -1,2 +1,3 @@
 examples/tools/mcpservers.json
 coverage.out
+testdata/test_mcp_server
