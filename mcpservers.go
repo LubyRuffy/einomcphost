@@ -135,7 +135,7 @@ type MCPHubOption func(*MCPHub)
 func WithInprocessMCPClient(name string, client *client.Client) MCPHubOption {
 	return func(h *MCPHub) {
 		config := &ServerConfig{
-			TransportType:   TransportTypeInprocess,
+			Transport:       TransportTypeInprocess,
 			inProcessClient: client,
 		}
 		h.connections[name] = &Connection{
@@ -504,8 +504,8 @@ func (h *MCPHub) closeExistingConnection(serverName string) error {
 //   - *client.Client: Configured MCP client ready for initialization
 //   - error: Error if client creation fails or transport type is unsupported
 func (h *MCPHub) createMCPClient(config *ServerConfig) (*client.Client, error) {
-	switch config.TransportType {
-	case TransportTypeSSE:
+	switch config.Transport {
+	case TransportTypeSSE, TransportTypeHTTP:
 		// replace $(ENV) with os.Getenv(ENV)
 		if strings.Contains(config.URL, "${") {
 			keyStart := strings.Index(config.URL, "${")
@@ -538,7 +538,7 @@ func (h *MCPHub) createMCPClient(config *ServerConfig) (*client.Client, error) {
 		}
 		return config.inProcessClient, nil
 	default:
-		return nil, fmt.Errorf("不支持的传输类型: %s", config.TransportType)
+		return nil, fmt.Errorf("不支持的传输类型: %s", config.Transport)
 	}
 }
 
@@ -650,7 +650,7 @@ func (h *MCPHub) GetEinoTools(ctx context.Context, toolNameList []string) ([]too
 		if t, exists := h.tools[toolName]; exists {
 			result = append(result, t)
 		} else {
-			return nil, fmt.Errorf("工具不存在: %s", toolName)
+			log.Printf("工具不存在: %s\n", toolName)
 		}
 	}
 

@@ -57,16 +57,16 @@ func TestLoadSettings(t *testing.T) {
 	config := MCPSettings{
 		MCPServers: map[string]*ServerConfig{
 			"server1": {
-				TransportType: "stdio",
-				Command:       "test_command1",
-				Args:          []string{"arg1", "arg2"},
-				Env:           map[string]string{"ENV1": "value1"},
-				Disabled:      true,
+				Transport: "stdio",
+				Command:   "test_command1",
+				Args:      []string{"arg1", "arg2"},
+				Env:       map[string]string{"ENV1": "value1"},
+				Disabled:  true,
 			},
 			"server2": {
-				TransportType: "sse",
-				URL:           "http://test-url.com",
-				Disabled:      true,
+				Transport: "sse",
+				URL:       "http://test-url.com",
+				Disabled:  true,
 			},
 		},
 	}
@@ -87,7 +87,7 @@ func TestLoadSettings(t *testing.T) {
 	// 验证server1配置
 	server1, exists := loadedConfig.MCPServers["server1"]
 	assert.True(t, exists)
-	assert.Equal(t, "stdio", server1.TransportType)
+	assert.Equal(t, "stdio", server1.Transport)
 	assert.Equal(t, "test_command1", server1.Command)
 	assert.Equal(t, []string{"arg1", "arg2"}, server1.Args)
 	assert.Equal(t, map[string]string{"ENV1": "value1"}, server1.Env)
@@ -96,7 +96,7 @@ func TestLoadSettings(t *testing.T) {
 	// 验证server2配置
 	server2, exists := loadedConfig.MCPServers["server2"]
 	assert.True(t, exists)
-	assert.Equal(t, "sse", server2.TransportType)
+	assert.Equal(t, "sse", server2.Transport)
 	assert.Equal(t, "http://test-url.com", server2.URL)
 	assert.True(t, server2.Disabled)
 }
@@ -160,13 +160,13 @@ func TestValidateSettings(t *testing.T) {
 	validSettings := &MCPSettings{
 		MCPServers: map[string]*ServerConfig{
 			"stdio_server": {
-				TransportType: "stdio",
-				Command:       "echo",
-				Args:          []string{"hello"},
+				Transport: "stdio",
+				Command:   "echo",
+				Args:      []string{"hello"},
 			},
 			"sse_server": {
-				TransportType: "sse",
-				URL:           "http://test-url.com",
+				Transport: "sse",
+				URL:       "http://test-url.com",
 			},
 		},
 	}
@@ -182,9 +182,9 @@ func TestValidateSettings(t *testing.T) {
 	invalidTimeoutSettings := &MCPSettings{
 		MCPServers: map[string]*ServerConfig{
 			"short_timeout": {
-				TransportType: "stdio",
-				Command:       "echo",
-				Timeout:       1 * time.Second, // 小于最小超时
+				Transport: "stdio",
+				Command:   "echo",
+				Timeout:   1 * time.Second, // 小于最小超时
 			},
 		},
 	}
@@ -196,7 +196,7 @@ func TestValidateSettings(t *testing.T) {
 	invalidSSESettings := &MCPSettings{
 		MCPServers: map[string]*ServerConfig{
 			"invalid_sse": {
-				TransportType: "sse",
+				Transport: "sse",
 				// 缺少URL
 			},
 		},
@@ -209,7 +209,7 @@ func TestValidateSettings(t *testing.T) {
 	invalidStdioSettings := &MCPSettings{
 		MCPServers: map[string]*ServerConfig{
 			"invalid_stdio": {
-				TransportType: "stdio",
+				Transport: "stdio",
 				// 缺少Command
 			},
 		},
@@ -222,8 +222,8 @@ func TestValidateSettings(t *testing.T) {
 	invalidTransportSettings := &MCPSettings{
 		MCPServers: map[string]*ServerConfig{
 			"invalid_transport": {
-				TransportType: "invalid",
-				Command:       "echo",
+				Transport: "invalid",
+				Command:   "echo",
 			},
 		},
 	}

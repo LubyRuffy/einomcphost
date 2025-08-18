@@ -22,6 +22,7 @@ import (
 )
 
 // buildAgentCallback 构建agent回调
+// param debug 是否打印详细信息
 func buildAgentCallback(debug bool) callbacks.Handler {
 	modelHandler := &template_callbacks.ModelCallbackHandler{
 		OnStart: func(ctx context.Context, info *callbacks.RunInfo, input *model.CallbackInput) context.Context {

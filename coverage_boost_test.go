@@ -62,7 +62,7 @@ func TestCreateMCPClient(t *testing.T) {
 
 	// Test unsupported transport type
 	config := &ServerConfig{
-		TransportType: "unsupported",
+		Transport: "unsupported",
 	}
 
 	client, err := hub.createMCPClient(config)
@@ -156,9 +156,9 @@ func TestNewMCPHubFromSettingsBasic(t *testing.T) {
 	settings = &MCPSettings{
 		MCPServers: map[string]*ServerConfig{
 			"disabled": {
-				TransportType: TransportTypeStdio,
-				Command:       "echo",
-				Disabled:      true,
+				Transport: TransportTypeStdio,
+				Command:   "echo",
+				Disabled:  true,
 			},
 		},
 	}

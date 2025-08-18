@@ -71,9 +71,11 @@ func generateConfigKey(settings *MCPSettings) string {
 		// 根据传输类型构建不同的键
 		keyBuilder.WriteString(fmt.Sprintf("|%s:", name))
 
-		switch config.TransportType {
+		switch config.Transport {
 		case TransportTypeSSE:
 			keyBuilder.WriteString(fmt.Sprintf("SSE:%s", config.URL))
+		case TransportTypeHTTP:
+			keyBuilder.WriteString(fmt.Sprintf("HTTP:%s", config.URL))
 		case TransportTypeStdio, "":
 			keyBuilder.WriteString(fmt.Sprintf("STDIO:%s:", config.Command))
 			// 添加参数

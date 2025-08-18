@@ -41,16 +41,6 @@ const (
 	MinMCPTimeoutSeconds = 5
 )
 
-// Transport type constants define supported MCP transport mechanisms
-const (
-	// TransportTypeSSE represents Server-Sent Events transport
-	TransportTypeSSE = "sse"
-	// TransportTypeStdio represents standard input/output transport
-	TransportTypeStdio = "stdio"
-	// TransportTypeInprocess represents inprocess transport
-	TransportTypeInprocess = "inprocess"
-)
-
 // Error message constants provide consistent error reporting
 const (
 	errMsgSettingsNil           = "settings cannot be nil"
@@ -73,6 +63,17 @@ type MCPSettings struct {
 	MCPServers map[string]*ServerConfig `json:"mcpServers"`
 }
 
+// TransportType represents the type of transport used by an MCP server
+type TransportType string
+
+// Transport type constants define supported MCP transport mechanisms
+const (
+	TransportTypeSSE       TransportType = "sse"       // Server-Sent Events 最新版本已经弃用，使用 TransportTypeHTTP 代替
+	TransportTypeHTTP      TransportType = "http"      // Streamable HTTP 流式 HTTP
+	TransportTypeStdio     TransportType = "stdio"     // 标准输入输出
+	TransportTypeInprocess TransportType = "inprocess" // 进程内 MCP 服务器，用于测试，实际上不在mcpServers中进行配置
+)
+
 // ServerConfig represents configuration for a single MCP server.
 // It supports both SSE and stdio transport types with their respective settings.
 // The configuration includes timeout management, auto-approval settings, and
@@ -81,11 +82,13 @@ type MCPSettings struct {
 // Transport-specific fields:
 //   - SSE transport: Requires URL field
 //   - Stdio transport: Requires Command field, optional Args and Env
+//
+// ref: https://github.com/mark3labs/mcphost/blob/4f2f61c6738417f74bc81c6910eebce632628569/internal/config/config.go
 type ServerConfig struct {
-	TransportType string        `json:"transportType,omitempty" yaml:"transport_type,omitempty" mapstructure:"transport_type"` // "sse" or "stdio" (defaults to "stdio")
-	AutoApprove   []string      `json:"autoApprove,omitempty" yaml:"auto_approve,omitempty" mapstructure:"auto_approve"`       // List of auto-approved operations
-	Disabled      bool          `json:"disabled,omitempty" yaml:"disabled,omitempty" mapstructure:"disabled"`                  // Whether the server is disabled
-	Timeout       time.Duration `json:"timeout,omitempty" yaml:"timeout,omitempty" mapstructure:"timeout"`                     // Operation timeout (defaults to 30s)
+	Transport   TransportType `json:"transport,omitempty" yaml:"transport,omitempty" mapstructure:"transport"`         // "sse" or "stdio" or "http" (defaults to "stdio")
+	AutoApprove []string      `json:"autoApprove,omitempty" yaml:"auto_approve,omitempty" mapstructure:"auto_approve"` // List of auto-approved operations
+	Disabled    bool          `json:"disabled,omitempty" yaml:"disabled,omitempty" mapstructure:"disabled"`            // Whether the server is disabled
+	Timeout     time.Duration `json:"timeout,omitempty" yaml:"timeout,omitempty" mapstructure:"timeout"`               // Operation timeout (defaults to 30s)
 
 	// SSE specific configuration
 	URL string `json:"url,omitempty" yaml:"url,omitempty" mapstructure:"url"` // Server URL for SSE transport
@@ -119,7 +122,7 @@ func (c *ServerConfig) GetTimeoutDuration() time.Duration {
 // Returns:
 //   - bool: true if the server uses SSE transport, false otherwise
 func (c *ServerConfig) IsSSETransport() bool {
-	return c.TransportType == TransportTypeSSE
+	return c.Transport == TransportTypeSSE || c.Transport == TransportTypeHTTP
 }
 
 // IsStdioTransport returns true if the server uses stdio transport.
@@ -129,7 +132,7 @@ func (c *ServerConfig) IsSSETransport() bool {
 // Returns:
 //   - bool: true if the server uses stdio transport, false otherwise
 func (c *ServerConfig) IsStdioTransport() bool {
-	return c.TransportType == TransportTypeStdio || c.TransportType == ""
+	return c.Transport == TransportTypeStdio || c.Transport == ""
 }
 
 // LoadSettingsFromString loads MCP settings from a JSON configuration string.
@@ -257,8 +260,8 @@ func validateServerConfig(name string, server *ServerConfig) error {
 	}
 
 	// Validate transport-specific requirements
-	switch server.TransportType {
-	case TransportTypeSSE:
+	switch server.Transport {
+	case TransportTypeSSE, TransportTypeHTTP:
 		if strings.TrimSpace(strings.TrimSpace(server.URL)) == "" {
 			return fmt.Errorf(errMsgURLRequired, name)
 		}
@@ -268,14 +271,19 @@ func validateServerConfig(name string, server *ServerConfig) error {
 		}
 	case "":
 		if strings.TrimSpace(strings.TrimSpace(server.URL)) != "" {
-			server.TransportType = TransportTypeSSE
+			// 简单的认为以 /mcp 结尾的 URL 是 SSE 传输，否则是 HTTP 传输
+			if strings.HasSuffix(strings.ToLower(server.URL), "/mcp") {
+				server.Transport = TransportTypeSSE
+			} else {
+				server.Transport = TransportTypeHTTP
+			}
 		} else if strings.TrimSpace(strings.TrimSpace(server.Command)) != "" {
-			server.TransportType = TransportTypeStdio
+			server.Transport = TransportTypeStdio
 		} else {
-			return fmt.Errorf(errMsgUnsupportedTransport, name, server.TransportType)
+			return fmt.Errorf(errMsgUnsupportedTransport, name, server.Transport)
 		}
 	default:
-		return fmt.Errorf(errMsgUnsupportedTransport, name, server.TransportType)
+		return fmt.Errorf(errMsgUnsupportedTransport, name, server.Transport)
 	}
 
 	return nil

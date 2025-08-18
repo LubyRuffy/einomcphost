@@ -44,14 +44,14 @@ func TestNewMCPHubDisabledServers(t *testing.T) {
 	config := MCPSettings{
 		MCPServers: map[string]*ServerConfig{
 			"disabled_stdio": {
-				TransportType: "stdio",
-				Command:       "echo",
-				Disabled:      true,
+				Transport: "stdio",
+				Command:   "echo",
+				Disabled:  true,
 			},
 			"disabled_sse": {
-				TransportType: "sse",
-				URL:           "http://example.com",
-				Disabled:      true,
+				Transport: "sse",
+				URL:       "http://example.com",
+				Disabled:  true,
 			},
 		},
 	}
@@ -79,8 +79,8 @@ func TestCreateMCPClientAllErrorPaths(t *testing.T) {
 
 	// 测试不支持的传输类型
 	config := &ServerConfig{
-		TransportType: "unknown_transport",
-		Command:       "echo",
+		Transport: "unknown_transport",
+		Command:   "echo",
 	}
 	client, err := hub.createMCPClient(config)
 	assert.Error(t, err)
@@ -89,8 +89,8 @@ func TestCreateMCPClientAllErrorPaths(t *testing.T) {
 
 	// 测试sse传输但缺少URL
 	config = &ServerConfig{
-		TransportType: TransportTypeSSE,
-		URL:           "",
+		Transport: TransportTypeSSE,
+		URL:       "",
 	}
 	client, err = hub.createMCPClient(config)
 	// SSE客户端可能不会立即验证URL，所以这里不强制要求错误
@@ -328,23 +328,23 @@ func TestServerConfigMethods(t *testing.T) {
 	assert.Equal(t, customTimeout, timeout)
 
 	// 测试IsSSETransport
-	config = ServerConfig{TransportType: TransportTypeSSE}
+	config = ServerConfig{Transport: TransportTypeSSE}
 	assert.True(t, config.IsSSETransport())
 
-	config = ServerConfig{TransportType: TransportTypeStdio}
+	config = ServerConfig{Transport: TransportTypeStdio}
 	assert.False(t, config.IsSSETransport())
 
-	config = ServerConfig{TransportType: "unknown"}
+	config = ServerConfig{Transport: "unknown"}
 	assert.False(t, config.IsSSETransport())
 
 	// 测试IsStdioTransport
-	config = ServerConfig{TransportType: TransportTypeStdio}
+	config = ServerConfig{Transport: TransportTypeStdio}
 	assert.True(t, config.IsStdioTransport())
 
-	config = ServerConfig{TransportType: ""}
+	config = ServerConfig{Transport: ""}
 	assert.True(t, config.IsStdioTransport()) // 默认为stdio
 
-	config = ServerConfig{TransportType: TransportTypeSSE}
+	config = ServerConfig{Transport: TransportTypeSSE}
 	assert.False(t, config.IsStdioTransport())
 }
 
@@ -368,14 +368,14 @@ func TestNewMCPHubFromSettingsEdgeCases(t *testing.T) {
 	settings2 := &MCPSettings{
 		MCPServers: map[string]*ServerConfig{
 			"disabled1": {
-				TransportType: TransportTypeStdio,
-				Command:       "echo",
-				Disabled:      true,
+				Transport: TransportTypeStdio,
+				Command:   "echo",
+				Disabled:  true,
 			},
 			"disabled2": {
-				TransportType: TransportTypeSSE,
-				URL:           "http://example.com",
-				Disabled:      true,
+				Transport: TransportTypeSSE,
+				URL:       "http://example.com",
+				Disabled:  true,
 			},
 		},
 	}
@@ -433,10 +433,10 @@ func TestCreateMCPClientStdioSuccess(t *testing.T) {
 
 	// 测试有效的stdio配置
 	config := &ServerConfig{
-		TransportType: TransportTypeStdio,
-		Command:       "echo", // 使用echo命令，应该在大多数系统上可用
-		Args:          []string{"hello"},
-		Env:           map[string]string{"TEST": "value"},
+		Transport: TransportTypeStdio,
+		Command:   "echo", // 使用echo命令，应该在大多数系统上可用
+		Args:      []string{"hello"},
+		Env:       map[string]string{"TEST": "value"},
 	}
 
 	client, err := hub.createMCPClient(config)
@@ -494,9 +494,9 @@ func TestNewMCPHubInitializationFailure(t *testing.T) {
 	settings := &MCPSettings{
 		MCPServers: map[string]*ServerConfig{
 			"invalid_server": {
-				TransportType: TransportTypeStdio,
-				Command:       "nonexistent_command_that_should_fail",
-				Disabled:      false, // 确保不被跳过
+				Transport: TransportTypeStdio,
+				Command:   "nonexistent_command_that_should_fail",
+				Disabled:  false, // 确保不被跳过
 			},
 		},
 	}

@@ -37,8 +37,8 @@ func TestValidateSettings_AdditionalCases(t *testing.T) {
 	defaultTransportSettings := &MCPSettings{
 		MCPServers: map[string]*ServerConfig{
 			"default_transport": {
-				TransportType: "", // 默认为stdio
-				Command:       "echo",
+				Transport: "", // 默认为stdio
+				Command:   "echo",
 			},
 		},
 	}
@@ -49,9 +49,9 @@ func TestValidateSettings_AdditionalCases(t *testing.T) {
 	minTimeoutSettings := &MCPSettings{
 		MCPServers: map[string]*ServerConfig{
 			"min_timeout": {
-				TransportType: "stdio",
-				Command:       "echo",
-				Timeout:       time.Duration(MinMCPTimeoutSeconds) * time.Second,
+				Transport: "stdio",
+				Command:   "echo",
+				Timeout:   time.Duration(MinMCPTimeoutSeconds) * time.Second,
 			},
 		},
 	}
@@ -98,7 +98,7 @@ func TestLoadSettingsFromString_EdgeCases(t *testing.T) {
 func TestServerConfigIsSSETransport(t *testing.T) {
 	tests := []struct {
 		name          string
-		transportType string
+		transportType TransportType
 		expected      bool
 	}{
 		{
@@ -126,7 +126,7 @@ func TestServerConfigIsSSETransport(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			config := &ServerConfig{
-				TransportType: tt.transportType,
+				Transport: tt.transportType,
 			}
 			assert.Equal(t, tt.expected, config.IsSSETransport())
 		})
@@ -137,7 +137,7 @@ func TestServerConfigIsSSETransport(t *testing.T) {
 func TestServerConfigIsStdioTransport(t *testing.T) {
 	tests := []struct {
 		name          string
-		transportType string
+		transportType TransportType
 		expected      bool
 	}{
 		{
@@ -165,7 +165,7 @@ func TestServerConfigIsStdioTransport(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			config := &ServerConfig{
-				TransportType: tt.transportType,
+				Transport: tt.transportType,
 			}
 			assert.Equal(t, tt.expected, config.IsStdioTransport())
 		})
@@ -216,8 +216,8 @@ func TestValidateServerConfigWithWhitespace(t *testing.T) {
 		{
 			name: "SSE with empty URL",
 			config: &ServerConfig{
-				TransportType: TransportTypeSSE,
-				URL:           "",
+				Transport: TransportTypeSSE,
+				URL:       "",
 			},
 			expectError: true,
 			errorMsg:    "URL is required for SSE transport",
@@ -225,8 +225,8 @@ func TestValidateServerConfigWithWhitespace(t *testing.T) {
 		{
 			name: "SSE with whitespace URL",
 			config: &ServerConfig{
-				TransportType: TransportTypeSSE,
-				URL:           "   ",
+				Transport: TransportTypeSSE,
+				URL:       "   ",
 			},
 			expectError: true,
 			errorMsg:    "URL is required for SSE transport",
@@ -234,8 +234,8 @@ func TestValidateServerConfigWithWhitespace(t *testing.T) {
 		{
 			name: "stdio with empty command",
 			config: &ServerConfig{
-				TransportType: TransportTypeStdio,
-				Command:       "",
+				Transport: TransportTypeStdio,
+				Command:   "",
 			},
 			expectError: true,
 			errorMsg:    "command is required for stdio transport",
@@ -243,8 +243,8 @@ func TestValidateServerConfigWithWhitespace(t *testing.T) {
 		{
 			name: "stdio with whitespace command",
 			config: &ServerConfig{
-				TransportType: TransportTypeStdio,
-				Command:       "   ",
+				Transport: TransportTypeStdio,
+				Command:   "   ",
 			},
 			expectError: true,
 			errorMsg:    "command is required for stdio transport",
@@ -252,8 +252,8 @@ func TestValidateServerConfigWithWhitespace(t *testing.T) {
 		{
 			name: "default transport with empty command",
 			config: &ServerConfig{
-				TransportType: "",
-				Command:       "", // TransportType为空，先检查url，再检查command，都没有的话，返回unsupported transport type
+				Transport: "",
+				Command:   "", // TransportType为空，先检查url，再检查command，都没有的话，返回unsupported transport type
 			},
 			expectError: true,
 			errorMsg:    "unsupported transport type",
@@ -261,17 +261,17 @@ func TestValidateServerConfigWithWhitespace(t *testing.T) {
 		{
 			name: "valid SSE config",
 			config: &ServerConfig{
-				TransportType: TransportTypeSSE,
-				URL:           "http://localhost:8080",
+				Transport: TransportTypeSSE,
+				URL:       "http://localhost:8080",
 			},
 			expectError: false,
 		},
 		{
 			name: "valid stdio config",
 			config: &ServerConfig{
-				TransportType: TransportTypeStdio,
-				Command:       "python",
-				Args:          []string{"-m", "server"},
+				Transport: TransportTypeStdio,
+				Command:   "python",
+				Args:      []string{"-m", "server"},
 			},
 			expectError: false,
 		},
