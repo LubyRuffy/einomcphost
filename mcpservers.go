@@ -36,6 +36,7 @@ import (
 	"io"
 	"log"
 	"os"
+	"slices"
 	"strings"
 	"sync"
 	"time"
@@ -306,6 +307,14 @@ func (h *MCPHub) discoverTools(ctx context.Context, serverName string, cli *clie
 	}
 
 	for _, mcpTool := range listResults.Tools {
+		// 如果配置了allowedTools，则只注册allowedTools中的工具
+		if len(h.config.MCPServers[serverName].AllowedTools) > 0 && !slices.Contains(h.config.MCPServers[serverName].AllowedTools, mcpTool.Name) {
+			continue
+		}
+		// 如果配置了excludedTools，则不注册excludedTools中的工具
+		if len(h.config.MCPServers[serverName].ExcludedTools) > 0 && slices.Contains(h.config.MCPServers[serverName].ExcludedTools, mcpTool.Name) {
+			continue
+		}
 		if err := h.registerTool(serverName, mcpTool, cli); err != nil {
 			return fmt.Errorf("注册工具 %s 失败: %w", mcpTool.Name, err)
 		}

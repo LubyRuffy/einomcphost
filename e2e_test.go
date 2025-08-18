@@ -442,6 +442,328 @@ func waitForServer(t *testing.T, port int) {
 	}
 }
 
+// TestE2EAllowedTools 测试AllowedTools功能
+func TestE2EAllowedTools(t *testing.T) {
+	// 构建测试服务器
+	serverPath := buildTestServer(t)
+	defer cleanupTestServer(serverPath)
+
+	ctx, cancel := context.WithTimeout(context.Background(), testTimeout)
+	defer cancel()
+
+	t.Run("允许部分工具", func(t *testing.T) {
+		// 只允许sum和echo工具
+		config := fmt.Sprintf(`{
+			"mcpServers": {
+				"test_allowed_server": {
+					"transport": "stdio",
+					"command": "%s",
+					"args": ["stdio"],
+					"timeout": 30000000000,
+					"allowedTools": ["sum", "echo"]
+				}
+			}
+		}`, serverPath)
+
+		hub, err := NewMCPHubFromString(ctx, config)
+		require.NoError(t, err, "Failed to create MCP hub with allowedTools")
+		defer hub.CloseServers()
+
+		// 获取工具
+		tools, err := hub.GetEinoTools(ctx, nil)
+		require.NoError(t, err, "Failed to get tools")
+
+		// 验证只有允许的工具存在
+		toolNames := make(map[string]bool)
+		for _, tool := range tools {
+			info, err := tool.Info(ctx)
+			require.NoError(t, err)
+			toolNames[info.Name] = true
+		}
+
+		// 应该有sum和echo工具
+		assert.True(t, toolNames["sum"], "Should have sum tool")
+		assert.True(t, toolNames["echo"], "Should have echo tool")
+		// 不应该有multiply工具
+		assert.False(t, toolNames["multiply"], "Should not have multiply tool")
+
+		// 总共应该只有2个工具
+		assert.Equal(t, 2, len(tools), "Should have exactly 2 tools")
+
+		// 测试允许的工具可以正常调用
+		testToolInvocation(t, ctx, hub, "test_allowed_server_sum", map[string]interface{}{
+			"a": 3,
+			"b": 4,
+		}, "7")
+
+		testToolInvocation(t, ctx, hub, "test_allowed_server_echo", map[string]interface{}{
+			"message": "AllowedTools Test",
+		}, "Echo: AllowedTools Test")
+	})
+
+	t.Run("只允许单个工具", func(t *testing.T) {
+		// 只允许sum工具
+		config := fmt.Sprintf(`{
+			"mcpServers": {
+				"test_single_allowed_server": {
+					"transport": "stdio",
+					"command": "%s",
+					"args": ["stdio"],
+					"timeout": 30000000000,
+					"allowedTools": ["sum"]
+				}
+			}
+		}`, serverPath)
+
+		hub, err := NewMCPHubFromString(ctx, config)
+		require.NoError(t, err, "Failed to create MCP hub with single allowedTool")
+		defer hub.CloseServers()
+
+		tools, err := hub.GetEinoTools(ctx, nil)
+		require.NoError(t, err, "Failed to get tools")
+
+		// 验证只有sum工具存在
+		toolNames := make(map[string]bool)
+		for _, tool := range tools {
+			info, err := tool.Info(ctx)
+			require.NoError(t, err)
+			toolNames[info.Name] = true
+		}
+
+		assert.True(t, toolNames["sum"], "Should have sum tool")
+		assert.False(t, toolNames["multiply"], "Should not have multiply tool")
+		assert.False(t, toolNames["echo"], "Should not have echo tool")
+		assert.Equal(t, 1, len(tools), "Should have exactly 1 tool")
+
+		// 测试工具调用
+		testToolInvocation(t, ctx, hub, "test_single_allowed_server_sum", map[string]interface{}{
+			"a": 5,
+			"b": 2,
+		}, "7")
+	})
+}
+
+// TestE2EExcludedTools 测试ExcludedTools功能
+func TestE2EExcludedTools(t *testing.T) {
+	// 构建测试服务器
+	serverPath := buildTestServer(t)
+	defer cleanupTestServer(serverPath)
+
+	ctx, cancel := context.WithTimeout(context.Background(), testTimeout)
+	defer cancel()
+
+	t.Run("排除部分工具", func(t *testing.T) {
+		// 排除multiply工具
+		config := fmt.Sprintf(`{
+			"mcpServers": {
+				"test_excluded_server": {
+					"transport": "stdio",
+					"command": "%s",
+					"args": ["stdio"],
+					"timeout": 30000000000,
+					"excludedTools": ["multiply"]
+				}
+			}
+		}`, serverPath)
+
+		hub, err := NewMCPHubFromString(ctx, config)
+		require.NoError(t, err, "Failed to create MCP hub with excludedTools")
+		defer hub.CloseServers()
+
+		tools, err := hub.GetEinoTools(ctx, nil)
+		require.NoError(t, err, "Failed to get tools")
+
+		// 验证排除的工具不存在
+		toolNames := make(map[string]bool)
+		for _, tool := range tools {
+			info, err := tool.Info(ctx)
+			require.NoError(t, err)
+			toolNames[info.Name] = true
+		}
+
+		// 应该有sum和echo工具
+		assert.True(t, toolNames["sum"], "Should have sum tool")
+		assert.True(t, toolNames["echo"], "Should have echo tool")
+		// 不应该有multiply工具
+		assert.False(t, toolNames["multiply"], "Should not have multiply tool")
+
+		// 总共应该有2个工具
+		assert.Equal(t, 2, len(tools), "Should have exactly 2 tools")
+
+		// 测试可用工具的调用
+		testToolInvocation(t, ctx, hub, "test_excluded_server_sum", map[string]interface{}{
+			"a": 8,
+			"b": 2,
+		}, "10")
+
+		testToolInvocation(t, ctx, hub, "test_excluded_server_echo", map[string]interface{}{
+			"message": "ExcludedTools Test",
+		}, "Echo: ExcludedTools Test")
+	})
+
+	t.Run("排除多个工具", func(t *testing.T) {
+		// 排除sum和echo工具，只保留multiply
+		config := fmt.Sprintf(`{
+			"mcpServers": {
+				"test_multi_excluded_server": {
+					"transport": "stdio",
+					"command": "%s",
+					"args": ["stdio"],
+					"timeout": 30000000000,
+					"excludedTools": ["sum", "echo"]
+				}
+			}
+		}`, serverPath)
+
+		hub, err := NewMCPHubFromString(ctx, config)
+		require.NoError(t, err, "Failed to create MCP hub with multiple excludedTools")
+		defer hub.CloseServers()
+
+		tools, err := hub.GetEinoTools(ctx, nil)
+		require.NoError(t, err, "Failed to get tools")
+
+		// 验证只有multiply工具存在
+		toolNames := make(map[string]bool)
+		for _, tool := range tools {
+			info, err := tool.Info(ctx)
+			require.NoError(t, err)
+			toolNames[info.Name] = true
+		}
+
+		assert.False(t, toolNames["sum"], "Should not have sum tool")
+		assert.False(t, toolNames["echo"], "Should not have echo tool")
+		assert.True(t, toolNames["multiply"], "Should have multiply tool")
+		assert.Equal(t, 1, len(tools), "Should have exactly 1 tool")
+
+		// 测试工具调用
+		testToolInvocation(t, ctx, hub, "test_multi_excluded_server_multiply", map[string]interface{}{
+			"a": 3,
+			"b": 4,
+		}, "12")
+	})
+}
+
+// TestE2EToolsFilteringCombination 测试AllowedTools和ExcludedTools组合使用
+func TestE2EToolsFilteringCombination(t *testing.T) {
+	// 构建测试服务器
+	serverPath := buildTestServer(t)
+	defer cleanupTestServer(serverPath)
+
+	ctx, cancel := context.WithTimeout(context.Background(), testTimeout)
+	defer cancel()
+
+	t.Run("AllowedTools优先级测试", func(t *testing.T) {
+		// 配置allowedTools包含sum和multiply，但excludedTools排除multiply
+		// 根据代码逻辑，应该先检查allowedTools，再检查excludedTools
+		config := fmt.Sprintf(`{
+			"mcpServers": {
+				"test_combination_server": {
+					"transport": "stdio",
+					"command": "%s",
+					"args": ["stdio"],
+					"timeout": 30000000000,
+					"allowedTools": ["sum", "multiply"],
+					"excludedTools": ["multiply"]
+				}
+			}
+		}`, serverPath)
+
+		hub, err := NewMCPHubFromString(ctx, config)
+		require.NoError(t, err, "Failed to create MCP hub with combined filtering")
+		defer hub.CloseServers()
+
+		tools, err := hub.GetEinoTools(ctx, nil)
+		require.NoError(t, err, "Failed to get tools")
+
+		// 验证工具过滤结果
+		toolNames := make(map[string]bool)
+		for _, tool := range tools {
+			info, err := tool.Info(ctx)
+			require.NoError(t, err)
+			toolNames[info.Name] = true
+		}
+
+		// 应该只有sum工具（在allowedTools中但不在excludedTools中）
+		assert.True(t, toolNames["sum"], "Should have sum tool")
+		assert.False(t, toolNames["multiply"], "Should not have multiply tool (excluded)")
+		assert.False(t, toolNames["echo"], "Should not have echo tool (not in allowedTools)")
+		assert.Equal(t, 1, len(tools), "Should have exactly 1 tool")
+
+		// 测试工具调用
+		testToolInvocation(t, ctx, hub, "test_combination_server_sum", map[string]interface{}{
+			"a": 6,
+			"b": 3,
+		}, "9")
+	})
+}
+
+// TestE2EToolsFilteringWithHTTPTransport 测试HTTP transport下的工具过滤
+func TestE2EToolsFilteringWithHTTPTransport(t *testing.T) {
+	// 构建测试服务器
+	serverPath := buildTestServer(t)
+	defer cleanupTestServer(serverPath)
+
+	// 找到可用端口
+	port := findAvailablePort(t)
+
+	// 启动HTTP服务器
+	ctx, cancel := context.WithTimeout(context.Background(), testTimeout)
+	defer cancel()
+
+	serverCmd := exec.CommandContext(ctx, serverPath, "http")
+	serverCmd.Env = append(os.Environ(), fmt.Sprintf("MCP_SERVER_PORT=%d", port))
+
+	if err := serverCmd.Start(); err != nil {
+		t.Fatalf("Failed to start HTTP server: %v", err)
+	}
+	defer func() {
+		if serverCmd.Process != nil {
+			serverCmd.Process.Kill()
+			serverCmd.Wait()
+		}
+	}()
+
+	// 等待服务器启动
+	waitForServer(t, port)
+
+	// 测试HTTP transport下的工具过滤
+	config := fmt.Sprintf(`{
+		"mcpServers": {
+			"test_http_filtered_server": {
+				"transport": "http",
+				"url": "http://localhost:%d/mcp",
+				"timeout": 60000000000,
+				"allowedTools": ["echo"]
+			}
+		}
+	}`, port)
+
+	hub, err := NewMCPHubFromString(ctx, config)
+	require.NoError(t, err, "Failed to create MCP hub with HTTP transport and filtering")
+	defer hub.CloseServers()
+
+	tools, err := hub.GetEinoTools(ctx, nil)
+	require.NoError(t, err, "Failed to get tools from HTTP server")
+
+	// 验证只有echo工具存在
+	toolNames := make(map[string]bool)
+	for _, tool := range tools {
+		info, err := tool.Info(ctx)
+		require.NoError(t, err)
+		toolNames[info.Name] = true
+	}
+
+	assert.True(t, toolNames["echo"], "Should have echo tool")
+	assert.False(t, toolNames["sum"], "Should not have sum tool")
+	assert.False(t, toolNames["multiply"], "Should not have multiply tool")
+	assert.Equal(t, 1, len(tools), "Should have exactly 1 tool")
+
+	// 测试工具调用
+	testToolInvocation(t, ctx, hub, "test_http_filtered_server_echo", map[string]interface{}{
+		"message": "HTTP Filtered Test",
+	}, "Echo: HTTP Filtered Test")
+}
+
 // testToolInvocation 测试工具调用
 func testToolInvocation(t *testing.T, ctx context.Context, hub *MCPHub, toolName string, params map[string]interface{}, expectedResult string) {
 	t.Helper()

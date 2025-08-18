@@ -99,6 +99,10 @@ type ServerConfig struct {
 	Args    []string          `json:"args" yaml:"args" mapstructure:"args"`                  // Command arguments
 	Env     map[string]string `json:"env,omitempty" yaml:"env,omitempty" mapstructure:"env"` // Environment variables
 
+	// Tool configuration
+	AllowedTools  []string `json:"allowedTools,omitempty" yaml:"allowedTools,omitempty"`   // Allowed tools for this server
+	ExcludedTools []string `json:"excludedTools,omitempty" yaml:"excludedTools,omitempty"` // Excluded tools for this server
+
 	// Inprocess specific configuration
 	inProcessClient *client.Client `json:"inprocessClient,omitempty" yaml:"inprocessClient,omitempty" mapstructure:"inprocessClient"` // MCP client implementation to be used for this server
 }
