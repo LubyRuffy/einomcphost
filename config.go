@@ -26,6 +26,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"net/url"
 	"os"
 	"strings"
 	"time"
@@ -286,11 +287,12 @@ func validateServerConfig(name string, server *ServerConfig) error {
 		}
 	case "":
 		if strings.TrimSpace(strings.TrimSpace(server.URL)) != "" {
+			u, _ := url.Parse(strings.ToLower(server.URL))
 			// 简单的认为以 /mcp 结尾的 URL 是 SSE 传输，否则是 HTTP 传输
-			if strings.HasSuffix(strings.ToLower(server.URL), "/mcp") {
-				server.Transport = transportSSE
-			} else {
+			if strings.HasSuffix(u.Path, "/mcp") {
 				server.Transport = transportHTTP1
+			} else {
+				server.Transport = transportSSE
 			}
 		} else if strings.TrimSpace(strings.TrimSpace(server.Command)) != "" {
 			server.Transport = transportStdio

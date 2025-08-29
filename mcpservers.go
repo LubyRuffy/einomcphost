@@ -430,7 +430,7 @@ func (h *MCPHub) connectToServer(ctx context.Context, serverName string, config 
 	}
 
 	// 如果没有找到已有连接或复用失败，则创建新连接
-	log.Printf("正在连接到MCP服务器: %s", serverName)
+	log.Printf("正在连接到MCP服务器: %s, %s", serverName, config.Transport)
 
 	// Close existing connection if any
 	if err := h.closeExistingConnection(serverName); err != nil {
