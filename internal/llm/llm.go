@@ -6,6 +6,8 @@ package llm
 
 import (
 	"context"
+	"net/http"
+	"net/url"
 
 	"github.com/cloudwego/eino-ext/components/model/openai"
 	"github.com/cloudwego/eino/components/model"
@@ -20,14 +22,34 @@ var (
 	DefaultOpenaiUrl = "https://api.openai.com/v1"
 	// DefaultGeminiUrl 默认的Gemini URL
 	DefaultGeminiUrl = "https://generativelanguage.googleapis.com/v1beta/openai"
+	// DefaultZhipuaiUrl 默认的智谱AI URL
+	DefaultZhipuaiUrl = "https://open.bigmodel.cn/api/paas/v4"
+
+	// ProxyUrl 代理URL
+	ProxyUrl = ""
+	// ProxyUrl = "http://127.0.0.1:18080"
 )
 
 // MustGetOpenaiCompatibleModel 获取OpenAI兼容的模型，如果获取失败则panic
 func MustGetOpenaiCompatibleModel(ctx context.Context, modelName string, baseUrl string, apiKey string) model.ToolCallingChatModel {
+	var httpClient *http.Client
+	if ProxyUrl != "" {
+		proxyUrl, err := url.Parse(ProxyUrl)
+		if err != nil {
+			panic(err)
+		}
+		httpClient = &http.Client{
+			Transport: &http.Transport{
+				Proxy: http.ProxyURL(proxyUrl),
+			},
+		}
+	}
+
 	chatModel, err := openai.NewChatModel(ctx, &openai.ChatModelConfig{
-		BaseURL: baseUrl,
-		Model:   modelName,
-		APIKey:  apiKey,
+		BaseURL:    baseUrl,
+		Model:      modelName,
+		APIKey:     apiKey,
+		HTTPClient: httpClient,
 	})
 	if err != nil {
 		panic(err)
@@ -54,4 +76,8 @@ func MustGetOpenaiModel(ctx context.Context, modelName string, apiKey string) mo
 // modelName类似于 models/gemini-2.5-pro
 func MustGetGeminiModel(ctx context.Context, modelName string, apiKey string) model.ToolCallingChatModel {
 	return MustGetOpenaiCompatibleModel(ctx, modelName, DefaultGeminiUrl, apiKey)
+}
+
+func MustGetZhipuaiModel(ctx context.Context, modelName string, apiKey string) model.ToolCallingChatModel {
+	return MustGetOpenaiCompatibleModel(ctx, modelName, DefaultZhipuaiUrl, apiKey)
 }
